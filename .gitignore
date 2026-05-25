@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+venv/
+.venv/
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Database
+*.db
+*.sqlite3
+
+# Alembic generated migrations (keep initial)
+# alembic/versions/
+
+# Models/weights
+# (Not applicable for this project)
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker volumes
+pgdata/
+
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Linting
+.mypy_cache/
+.ruff_cache/
+
+# Logs
+*.log
