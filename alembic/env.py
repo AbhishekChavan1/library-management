@@ -3,15 +3,14 @@
 import asyncio
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from app.core.config import settings
-from app.db.base import Base
-
 # Import all models so metadata is populated
 import app.models  # noqa: F401
+from alembic import context
+from app.core.config import settings
+from app.db.base import Base
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)

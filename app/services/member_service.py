@@ -45,9 +45,11 @@ async def get_members(
     count_query = select(func.count(Member.id))
 
     if search:
-        search_filter = Member.name.ilike(f"%{search}%") | Member.email.ilike(
-            f"%{search}%"
-        ) | Member.membership_id.ilike(f"%{search}%")
+        search_filter = (
+            Member.name.ilike(f"%{search}%")
+            | Member.email.ilike(f"%{search}%")
+            | Member.membership_id.ilike(f"%{search}%")
+        )
         query = query.where(search_filter)
         count_query = count_query.where(search_filter)
     if active_only:
@@ -73,9 +75,7 @@ async def get_member(db: AsyncSession, member_id: uuid.UUID) -> MemberResponse:
     result = await db.execute(select(Member).where(Member.id == member_id))
     member = result.scalar_one_or_none()
     if not member:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Member not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
     return _to_response(member)
 
 
@@ -86,9 +86,7 @@ async def update_member(
     result = await db.execute(select(Member).where(Member.id == member_id))
     member = result.scalar_one_or_none()
     if not member:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Member not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
 
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(member, field, value)
@@ -103,18 +101,14 @@ async def delete_member(db: AsyncSession, member_id: uuid.UUID) -> None:
     result = await db.execute(select(Member).where(Member.id == member_id))
     member = result.scalar_one_or_none()
     if not member:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Member not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
     await db.delete(member)
 
 
 def _to_response(member: Member) -> MemberResponse:
     active_borrows = 0
     if member.borrow_records:
-        active_borrows = sum(
-            1 for r in member.borrow_records if r.status == "borrowed"
-        )
+        active_borrows = sum(1 for r in member.borrow_records if r.status == "borrowed")
     return MemberResponse(
         id=member.id,
         membership_id=member.membership_id,
