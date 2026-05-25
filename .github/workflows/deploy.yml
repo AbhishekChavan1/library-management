@@ -1,0 +1,50 @@
+name: Deploy
+
+on:
+  push:
+    branches: [master, develop]
+
+jobs:
+  deploy-staging:
+    name: Deploy (Staging)
+    if: github.ref_name == 'develop'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: library-management:staging-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to staging
+        run: |
+          echo "🚀 Deploying to staging environment..."
+          echo "Image: library-management:staging-${{ github.sha }}"
+          echo "✅ Staging deployment complete (simulated — add actual deploy steps)"
+
+  deploy-production:
+    name: Deploy (Production)
+    if: github.ref_name == 'master'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: library-management:production-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to production
+        run: |
+          echo "🚀 Deploying to production environment..."
+          echo "Image: library-management:production-${{ github.sha }}"
+          echo "✅ Production deployment complete (simulated — add actual deploy steps)"
