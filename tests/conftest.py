@@ -10,6 +10,9 @@ from app.core.config import settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
+from app.models.user import User
+from app.schemas.auth import UserCreate
+from app.services.auth_service import register_user
 
 
 @pytest_asyncio.fixture(scope="session")
@@ -34,13 +37,37 @@ async def setup_database(test_engine):
 
 
 @pytest_asyncio.fixture
-async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
+async def db_session(test_engine, setup_database) -> AsyncGenerator[AsyncSession, None]:
     """Provide a transactional session for tests."""
     async with test_engine.connect() as conn:
         transaction = await conn.begin()
         session = AsyncSession(bind=conn, join_transaction_mode="create_savepoint")
         yield session
         await transaction.rollback()
+
+
+@pytest_asyncio.fixture
+async def member_user(db_session: AsyncSession) -> User:
+    """Create a common member user for authenticated tests."""
+    return await register_user(
+        db=db_session,
+        data=UserCreate(
+            email="testmember@example.com",
+            password="TestMemberPass123!",
+            full_name="Test Member",
+            role="member",
+        ),
+    )
+
+
+@pytest_asyncio.fixture
+async def member_token(client: AsyncClient, member_user: User) -> str:
+    """Get member JWT token."""
+    response = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "testmember@example.com", "password": "TestMemberPass123!"},
+    )
+    return response.json()["access_token"]
 
 
 @pytest_asyncio.fixture

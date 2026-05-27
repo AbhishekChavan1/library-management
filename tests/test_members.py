@@ -7,21 +7,47 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Member, User
-from app.services.auth_service import auth_service
-from app.services.member_service import member_service
+from app.schemas.auth import UserCreate
+from app.schemas.member import MemberCreate
+from app.services import auth_service, member_service
 
 
 class TestMembers:
     """Member endpoint tests."""
 
     @pytest.fixture
+    async def admin_user(self, db_session: AsyncSession) -> User:
+        """Create an admin user."""
+        return await auth_service.register_user(
+            db=db_session,
+            data=UserCreate(
+                email="admin@example.com",
+                password="AdminPass123!",
+                full_name="Admin User",
+                role="admin",
+            ),
+        )
+
+    @pytest.fixture
+    async def admin_token(self, client: AsyncClient, admin_user: User):
+        """Get admin JWT token."""
+        response = await client.post(
+            "/api/v1/auth/login",
+            json={"email": "admin@example.com", "password": "AdminPass123!"},
+        )
+        return response.json()["access_token"]
+
+    @pytest.fixture
     async def librarian_user(self, db_session: AsyncSession) -> User:
         """Create a librarian user."""
         return await auth_service.register_user(
-            db_session=db_session,
-            username="librarian",
-            email="librarian@example.com",
-            password="LibrarianPass123!",
+            db=db_session,
+            data=UserCreate(
+                email="librarian@example.com",
+                password="LibrarianPass123!",
+                full_name="Librarian User",
+                role="librarian",
+            ),
         )
 
     @pytest.fixture
@@ -29,71 +55,107 @@ class TestMembers:
         """Get librarian JWT token."""
         response = await client.post(
             "/api/v1/auth/login",
-            json={"username": "librarian", "password": "LibrarianPass123!"},
+            json={"email": "librarian@example.com", "password": "LibrarianPass123!"},
         )
         return response.json()["access_token"]
 
     @pytest.fixture
-    async def test_member(self, db_session: AsyncSession, librarian_user: User) -> Member:
+    async def test_member(self, db_session: AsyncSession) -> Member:
         """Create a test member."""
         return await member_service.create_member(
-            db_session=db_session,
-            user_id=librarian_user.id,
-            first_name="John",
-            last_name="Doe",
-            phone="555-0123",
-            address="123 Main St",
+            db=db_session,
+            data=MemberCreate(
+                name="John Doe",
+                email="john@example.com",
+                phone="555-0123",
+                membership_type="standard",
+            ),
         )
 
     @pytest.mark.asyncio
-    async def test_register_member(self, client: AsyncClient, db_session: AsyncSession):
-        """Test member registration."""
-        # Create a user first
-        user = await auth_service.register_user(
-            db_session=db_session,
-            username="newmember",
-            email="newmember@example.com",
-            password="MemberPass123!",
-        )
-
+    async def test_create_member(self, client: AsyncClient, librarian_token: str):
+        """Test member creation."""
         response = await client.post(
-            "/api/v1/members/register",
+            "/api/v1/members/",
+            headers={"Authorization": f"Bearer {librarian_token}"},
             json={
-                "user_id": user.id,
-                "first_name": "Jane",
-                "last_name": "Smith",
+                "name": "Jane Smith",
+                "email": "jane@example.com",
                 "phone": "555-0124",
-                "address": "456 Oak Ave",
+                "membership_type": "premium",
             },
         )
         assert response.status_code == 201
         data = response.json()
-        assert data["first_name"] == "Jane"
-        assert data["last_name"] == "Smith"
+        assert data["name"] == "Jane Smith"
+        assert data["email"] == "jane@example.com"
 
     @pytest.mark.asyncio
-    async def test_get_member(self, client: AsyncClient, test_member: Member):
+    async def test_create_member_unauthorized(self, client: AsyncClient):
+        """Test create member without authorization."""
+        response = await client.post(
+            "/api/v1/members/",
+            json={
+                "name": "Jane Smith",
+                "email": "jane@example.com",
+                "phone": "555-0124",
+            },
+        )
+        assert response.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_create_duplicate_member(
+        self,
+        client: AsyncClient,
+        librarian_token: str,
+        test_member: Member,
+    ):
+        """Test creating a duplicate member (same email) fails."""
+        response = await client.post(
+            "/api/v1/members/",
+            headers={"Authorization": f"Bearer {librarian_token}"},
+            json={
+                "name": "John Doe Copy",
+                "email": "john@example.com",  # Same email as test_member
+                "phone": "555-9999",
+            },
+        )
+        assert response.status_code == 409
+
+    @pytest.mark.asyncio
+    async def test_get_member(self, client: AsyncClient, librarian_token: str, test_member: Member):
         """Test retrieving a member."""
-        response = await client.get(f"/api/v1/members/{test_member.id}")
+        response = await client.get(
+            f"/api/v1/members/{test_member.id}",
+            headers={"Authorization": f"Bearer {librarian_token}"},
+        )
         assert response.status_code == 200
         data = response.json()
-        assert data["id"] == test_member.id
-        assert data["first_name"] == test_member.first_name
+        assert data["id"] == str(test_member.id)
+        assert data["name"] == test_member.name
 
     @pytest.mark.asyncio
-    async def test_get_nonexistent_member(self, client: AsyncClient):
+    async def test_get_nonexistent_member(self, client: AsyncClient, librarian_token: str):
         """Test retrieving nonexistent member."""
-        response = await client.get("/api/v1/members/99999")
+        response = await client.get(
+            "/api/v1/members/00000000-0000-0000-0000-000000000000",
+            headers={"Authorization": f"Bearer {librarian_token}"},
+        )
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_list_members(self, client: AsyncClient, test_member: Member):
+    async def test_list_members(
+        self, client: AsyncClient, librarian_token: str, test_member: Member
+    ):
         """Test listing members."""
-        response = await client.get("/api/v1/members")
+        response = await client.get(
+            "/api/v1/members/",
+            headers={"Authorization": f"Bearer {librarian_token}"},
+        )
         assert response.status_code == 200
         data = response.json()
-        assert isinstance(data, list)
-        assert len(data) > 0
+        assert "items" in data
+        assert len(data["items"]) > 0
 
     @pytest.mark.asyncio
     async def test_update_member(
@@ -106,76 +168,55 @@ class TestMembers:
         response = await client.put(
             f"/api/v1/members/{test_member.id}",
             headers={"Authorization": f"Bearer {librarian_token}"},
-            json={"phone": "555-9999", "address": "789 Pine Rd"},
+            json={"phone": "555-9999", "name": "John Updated"},
         )
         assert response.status_code == 200
         data = response.json()
         assert data["phone"] == "555-9999"
-        assert data["address"] == "789 Pine Rd"
+        assert data["name"] == "John Updated"
 
     @pytest.mark.asyncio
-    async def test_member_status(
-        self,
-        client: AsyncClient,
-        librarian_token: str,
-        test_member: Member,
-    ):
-        """Test getting member status."""
-        response = await client.get(
-            f"/api/v1/members/{test_member.id}/status",
-            headers={"Authorization": f"Bearer {librarian_token}"},
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert "status" in data
-        assert "active_borrowings" in data
-
-    @pytest.mark.asyncio
-    async def test_suspend_member(
-        self,
-        client: AsyncClient,
-        librarian_token: str,
-        test_member: Member,
-    ):
-        """Test suspending a member."""
-        response = await client.post(
-            f"/api/v1/members/{test_member.id}/suspend",
-            headers={"Authorization": f"Bearer {librarian_token}"},
-            json={"reason": "Non-payment of fines"},
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert data["is_suspended"] is True
-
-    @pytest.mark.asyncio
-    async def test_suspend_member_unauthorized(self, client: AsyncClient, test_member: Member):
-        """Test suspend member without authorization."""
-        response = await client.post(
-            f"/api/v1/members/{test_member.id}/suspend",
-            json={"reason": "Non-payment of fines"},
+    async def test_update_member_unauthorized(self, client: AsyncClient, test_member: Member):
+        """Test update member without authorization."""
+        response = await client.put(
+            f"/api/v1/members/{test_member.id}",
+            json={"phone": "555-9999"},
         )
         assert response.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_reactivate_member(
+    async def test_delete_member(
+        self,
+        client: AsyncClient,
+        admin_token: str,
+        test_member: Member,
+        db_session: AsyncSession,
+    ):
+        """Test deleting a member."""
+        response = await client.delete(
+            f"/api/v1/members/{test_member.id}",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "message" in data
+
+    @pytest.mark.asyncio
+    async def test_delete_member_unauthorized(self, client: AsyncClient, test_member: Member):
+        """Test delete member without authorization."""
+        response = await client.delete(f"/api/v1/members/{test_member.id}")
+        assert response.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_delete_member_forbidden(
         self,
         client: AsyncClient,
         librarian_token: str,
         test_member: Member,
-        db_session: AsyncSession,
     ):
-        """Test reactivating a suspended member."""
-        # First suspend the member
-        await member_service.suspend_member(
-            db_session=db_session,
-            member_id=test_member.id,
-            reason="Test suspension",
-        )
-
-        response = await client.post(
-            f"/api/v1/members/{test_member.id}/reactivate",
+        """Test delete member without admin role."""
+        response = await client.delete(
+            f"/api/v1/members/{test_member.id}",
             headers={"Authorization": f"Bearer {librarian_token}"},
         )
-        assert response.status_code == 200
-        data = response.json()
-        assert data["is_suspended"] is False
+        assert response.status_code == 403

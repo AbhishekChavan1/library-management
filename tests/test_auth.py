@@ -7,7 +7,8 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import User
-from app.services.auth_service import auth_service
+from app.schemas.auth import UserCreate
+from app.services import auth_service
 
 
 class TestAuth:
@@ -16,13 +17,14 @@ class TestAuth:
     @pytest.fixture
     async def test_user(self, db_session: AsyncSession) -> User:
         """Create a test user."""
-        user = await auth_service.register_user(
-            db_session=db_session,
-            username="testuser",
-            email="test@example.com",
-            password="TestPassword123!",
+        return await auth_service.register_user(
+            db=db_session,
+            data=UserCreate(
+                email="test@example.com",
+                password="TestPassword123!",
+                full_name="Test User",
+            ),
         )
-        return user
 
     @pytest.mark.asyncio
     async def test_register_user(self, client: AsyncClient, db_session: AsyncSession):
@@ -30,29 +32,16 @@ class TestAuth:
         response = await client.post(
             "/api/v1/auth/register",
             json={
-                "username": "newuser",
                 "email": "new@example.com",
                 "password": "SecurePass123!",
+                "full_name": "New User",
             },
         )
         assert response.status_code == 201
         data = response.json()
-        assert data["username"] == "newuser"
         assert data["email"] == "new@example.com"
+        assert data["full_name"] == "New User"
         assert "id" in data
-
-    @pytest.mark.asyncio
-    async def test_register_duplicate_username(self, client: AsyncClient, test_user: User):
-        """Test registration fails with duplicate username."""
-        response = await client.post(
-            "/api/v1/auth/register",
-            json={
-                "username": "testuser",
-                "email": "other@example.com",
-                "password": "SecurePass123!",
-            },
-        )
-        assert response.status_code == 400
 
     @pytest.mark.asyncio
     async def test_register_duplicate_email(self, client: AsyncClient, test_user: User):
@@ -60,19 +49,19 @@ class TestAuth:
         response = await client.post(
             "/api/v1/auth/register",
             json={
-                "username": "otheruser",
                 "email": "test@example.com",
                 "password": "SecurePass123!",
+                "full_name": "Test User",
             },
         )
-        assert response.status_code == 400
+        assert response.status_code == 409
 
     @pytest.mark.asyncio
     async def test_login_success(self, client: AsyncClient, test_user: User):
         """Test successful login."""
         response = await client.post(
             "/api/v1/auth/login",
-            json={"username": "testuser", "password": "TestPassword123!"},
+            json={"email": "test@example.com", "password": "TestPassword123!"},
         )
         assert response.status_code == 200
         data = response.json()
@@ -84,7 +73,7 @@ class TestAuth:
         """Test login with invalid credentials."""
         response = await client.post(
             "/api/v1/auth/login",
-            json={"username": "nonexistent", "password": "WrongPassword"},
+            json={"email": "nonexistent@example.com", "password": "WrongPassword"},
         )
         assert response.status_code == 401
 
@@ -93,7 +82,7 @@ class TestAuth:
         """Test login with wrong password."""
         response = await client.post(
             "/api/v1/auth/login",
-            json={"username": "testuser", "password": "WrongPassword123!"},
+            json={"email": "test@example.com", "password": "WrongPassword123!"},
         )
         assert response.status_code == 401
 
@@ -105,7 +94,7 @@ class TestAuth:
         # First login to get token
         login_response = await client.post(
             "/api/v1/auth/login",
-            json={"username": "testuser", "password": "TestPassword123!"},
+            json={"email": "test@example.com", "password": "TestPassword123!"},
         )
         token = login_response.json()["access_token"]
 
@@ -116,8 +105,8 @@ class TestAuth:
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["username"] == "testuser"
         assert data["email"] == "test@example.com"
+        assert data["full_name"] == "Test User"
 
     @pytest.mark.asyncio
     async def test_get_current_user_unauthorized(self, client: AsyncClient):
