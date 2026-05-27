@@ -4,7 +4,9 @@ from app.models.author import Author
 from app.models.book import Book
 from app.models.borrow_record import BorrowRecord
 from app.models.category import Category
+from app.models.fine import Fine
+from app.models.hold import Hold
 from app.models.member import Member
 from app.models.user import User
 
-__all__ = ["Author", "Book", "BorrowRecord", "Category", "Member", "User"]
+__all__ = ["Author", "Book", "BorrowRecord", "Category", "Fine", "Hold", "Member", "User"]

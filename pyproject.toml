@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "library-management"
@@ -18,7 +18,7 @@ dependencies = [
     "asyncpg>=0.29.0",
     "alembic>=1.13.0",
     "python-jose[cryptography]>=3.3.0",
-    "passlib[bcrypt]>=1.7.4",
+    "bcrypt>=4.0.0",
     "python-multipart>=0.0.9",
 ]
 
@@ -27,11 +27,31 @@ dev = [
     "httpx>=0.27.0",
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
     "ruff>=0.4.0",
+    "mypy>=1.8.0",
+    "bandit>=1.7.5",
+    "pip-audit>=2.6.0",
+    "pydocstyle>=6.3.0",
+    "pre-commit>=3.7.0",
 ]
 
-[tool.setuptools.packages.find]
-include = ["app*"]
+[dependency-groups]
+dev = [
+    "httpx>=0.27.0",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.4.0",
+    "mypy>=1.8.0",
+    "bandit>=1.7.5",
+    "pip-audit>=2.6.0",
+    "pydocstyle>=6.3.0",
+    "pre-commit>=3.7.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
 
 [tool.ruff]
 line-length = 100
@@ -40,7 +60,16 @@ target-version = "py311"
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
 
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-v --tb=short"
+addopts = "-v --tb=short --cov=app --cov-report=term-missing"
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"

@@ -105,18 +105,12 @@ async def return_book(db: AsyncSession, record_id: uuid.UUID) -> BorrowResponse:
 
     Sets return_date, increments available_copies, updates status.
     """
-    result = await db.execute(
-        select(BorrowRecord).where(BorrowRecord.id == record_id)
-    )
+    result = await db.execute(select(BorrowRecord).where(BorrowRecord.id == record_id))
     record = result.scalar_one_or_none()
     if not record:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Borrow record not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Borrow record not found")
     if record.status == "returned":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Book already returned"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Book already returned")
 
     # Update record
     record.return_date = datetime.now(UTC)
@@ -197,11 +191,7 @@ async def get_borrow_history(
         count_query = count_query.where(BorrowRecord.status == status_filter)
 
     total = (await db.execute(count_query)).scalar() or 0
-    query = (
-        query.offset((page - 1) * size)
-        .limit(size)
-        .order_by(BorrowRecord.borrow_date.desc())
-    )
+    query = query.offset((page - 1) * size).limit(size).order_by(BorrowRecord.borrow_date.desc())
     result = await db.execute(query)
     records = result.scalars().all()
 

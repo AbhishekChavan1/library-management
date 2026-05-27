@@ -88,9 +88,7 @@ async def get_book(db: AsyncSession, book_id: uuid.UUID) -> BookResponse:
     return _to_response(book)
 
 
-async def update_book(
-    db: AsyncSession, book_id: uuid.UUID, data: BookUpdate
-) -> BookResponse:
+async def update_book(db: AsyncSession, book_id: uuid.UUID, data: BookUpdate) -> BookResponse:
     """Update a book's details."""
     result = await db.execute(select(Book).where(Book.id == book_id))
     book = result.scalar_one_or_none()

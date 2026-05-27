@@ -15,9 +15,7 @@ class BorrowRecord(Base):
 
     __tablename__ = "borrow_records"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     book_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("books.id"), nullable=False
     )
@@ -30,12 +28,8 @@ class BorrowRecord(Base):
     borrow_date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
-    due_date: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
-    return_date: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    due_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    return_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="borrowed"
     )  # borrowed | returned | overdue

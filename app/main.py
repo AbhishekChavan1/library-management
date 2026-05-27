@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(application: FastAPI):
     """Application lifespan — startup and shutdown events."""
     setup_logging()
     logger.info("Starting %s v%s", settings.PROJECT_NAME, settings.VERSION)
@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI):
     logger.info("Application shutdown complete")
 
 
-app = FastAPI(
+app: FastAPI = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     description="A production-ready REST API for managing a library — "

@@ -1,0 +1,52 @@
+name: Merge Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [develop, master]
+
+jobs:
+  merge-gate:
+    name: Merge Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check PR target
+        run: |
+          echo "Merging into: ${{ github.base_ref }}"
+          echo "From branch: ${{ github.head_ref }}"
+
+      - name: Validate branch naming
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          if [[ "${{ github.base_ref }}" == "master" ]]; then
+            if [[ ! "$BRANCH" =~ ^(develop|release/|hotfix/) ]]; then
+              echo "❌ Only 'develop', 'release/*', or 'hotfix/*' branches can merge into master"
+              exit 1
+            fi
+          fi
+          if [[ "${{ github.base_ref }}" == "develop" ]]; then
+            if [[ ! "$BRANCH" =~ ^(feature/|bugfix/|hotfix/) ]]; then
+              echo "⚠️  Warning: Non-standard branch name for develop merge"
+            fi
+          fi
+          echo "✅ Branch naming validated"
+
+  require-up-to-date:
+    name: Require Up-to-Date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if branch is behind target
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          BEHIND=$(git rev-list --count HEAD..origin/${{ github.base_ref }})
+          if [ "$BEHIND" -gt 0 ]; then
+            echo "❌ Branch is $BEHIND commit(s) behind ${{ github.base_ref }}. Please rebase or merge."
+            exit 1
+          fi
+          echo "✅ Branch is up-to-date with ${{ github.base_ref }}"

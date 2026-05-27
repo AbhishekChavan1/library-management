@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     # ── Library Config ──
     BORROW_PERIOD_DAYS: int = 14
     MAX_BOOKS_PER_MEMBER: int = 5
+    FINE_PER_DAY: float = 0.50  # Fine amount per day for overdue books
+    MAX_FINE_PER_BOOK: float = 10.00  # Maximum fine per overdue book
 
     model_config = {
         "env_file": ".env",

@@ -15,12 +15,8 @@ class Book(Base):
 
     __tablename__ = "books"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    isbn: Mapped[str] = mapped_column(
-        String(20), unique=True, nullable=False, index=True
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    isbn: Mapped[str] = mapped_column(String(20), unique=True, nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(500), nullable=False, index=True)
     author_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("authors.id"), nullable=False
@@ -39,6 +35,4 @@ class Book(Base):
     # Relationships
     author = relationship("Author", back_populates="books", lazy="selectin")
     category = relationship("Category", back_populates="books", lazy="selectin")
-    borrow_records = relationship(
-        "BorrowRecord", back_populates="book", lazy="selectin"
-    )
+    borrow_records = relationship("BorrowRecord", back_populates="book", lazy="selectin")
