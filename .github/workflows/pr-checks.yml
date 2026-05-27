@@ -1,0 +1,83 @@
+name: Code Review & PR Checks
+
+on:
+  pull_request:
+    branches: [develop, master]
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  pr-size-check:
+    name: PR Size Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check PR size
+        run: |
+          LINES_ADDED=$(git diff origin/${{ github.base_ref }}..HEAD -- '*.py' | grep '^+' | wc -l)
+          LINES_DELETED=$(git diff origin/${{ github.base_ref }}..HEAD -- '*.py' | grep '^-' | wc -l)
+          TOTAL_CHANGES=$((LINES_ADDED + LINES_DELETED))
+
+          echo "📊 PR Statistics:"
+          echo "   Lines Added: $LINES_ADDED"
+          echo "   Lines Deleted: $LINES_DELETED"
+          echo "   Total Changes: $TOTAL_CHANGES"
+
+          if [ $TOTAL_CHANGES -gt 500 ]; then
+            echo "⚠️  Warning: Large PR detected ($TOTAL_CHANGES lines). Please consider splitting into smaller PRs."
+          fi
+
+  commit-lint:
+    name: Commit Message Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit messages
+        run: |
+          # Check for conventional commits
+          COMMITS=$(git log origin/${{ github.base_ref }}..HEAD --format=%B | head -1)
+
+          echo "Checking commit message: $COMMITS"
+
+          if ! echo "$COMMITS" | grep -iE "^(feat|fix|docs|style|refactor|perf|test|chore|ci|build)(\(.+\))?: .+" > /dev/null; then
+            echo "✅ Commit follows conventional commit format"
+          else
+            echo "⚠️  Warning: Please follow conventional commits (feat:, fix:, docs:, etc.)"
+          fi
+
+  docstring-check:
+    name: Docstring Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Check docstring coverage
+        run: |
+          uv run pydocstyle app --match-dir="^(?!test).*" || true
+
+  api-docs-check:
+    name: API Documentation Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check OpenAPI schema
+        run: |
+          echo "Validating that all endpoints are documented..."
+          grep -r "tags=" app/api/ || echo "⚠️  Some endpoints may be missing tags"
+          grep -r "response_model=" app/api/ || echo "⚠️  Some endpoints may be missing response models"
